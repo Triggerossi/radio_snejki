@@ -1,0 +1,11 @@
+{% load static %}
+<link rel="stylesheet" href="{% static 'css/style.css' %}">
+
+<h2>Регистрация</h2>
+<form method="post">
+  {% csrf_token %}
+  <input name="username" placeholder="Логин"><br>
+  <input name="password" type="password" placeholder="Пароль"><br>
+  <button>Создать аккаунт</button>
+</form>
+<a href="/login/">Вход</a>

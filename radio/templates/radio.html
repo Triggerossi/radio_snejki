@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Radio</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #1e1e1e;
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .player {
+            text-align: center;
+            background: #2c2c2c;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.7);
+            width: 300px;
+        }
+
+        .cover {
+            width: 250px;
+            height: 250px;
+            object-fit: cover;
+            border-radius: 15px;
+            margin-bottom: 20px;
+        }
+
+        .song-info h2 {
+            margin: 10px 0 5px;
+            font-size: 24px;
+        }
+
+        .song-info p {
+            margin: 5px 0;
+            color: #aaa;
+        }
+
+        .likes {
+            color: #ff6f81;
+            font-size: 14px;
+            margin: 10px 0;
+        }
+
+        .controls button {
+            background: #ff4b5c;
+            border: none;
+            color: #fff;
+            padding: 12px 24px;
+            margin: 8px;
+            font-size: 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .controls button:hover {
+            background: #ff6f81;
+        }
+
+        .controls button.liked {
+            background: #ff6f81;
+        }
+
+        .controls button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .controls .reset-btn {
+            background: #444;
+            font-size: 14px;
+            padding: 10px 16px;
+        }
+
+        .controls .reset-btn:hover {
+            background: #666;
+        }
+
+        audio {
+            width: 100%;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="player">
+        {% if song.cover %}
+        <img src="{{ song.cover.url }}" alt="Cover" class="cover" id="cover-img">
+        {% else %}
+        <div class="cover" style="background: #333;"></div>
+        {% endif %}
+
+        <div class="song-info">
+            <h2 id="song-title">{{ song.title }}</h2>
+            <p id="song-artist-genre">{{ song.author.name }} — {{ song.genre.name }}</p>
+            <p class="likes">❤️ <span id="like-count">{{ song.likes_count|default:0 }}</span> likes</p>
+        </div>
+
+        <audio id="audio-player" controls autoplay preload="auto">
+            <source src="{{ song.file.url }}" type="audio/mpeg">
+            Ваш браузер не поддерживает аудио.
+        </audio>
+
+        <div class="controls">
+            <button id="like-btn" data-song-id="{{ song.id }}">
+                {% if song.is_liked %}❤️ Liked{% else %}❤️ Like{% endif %}
+            </button>
+            <button id="next-btn">⏭ Next</button>
+            <br>
+            <button id="reset-likes-btn" class="reset-btn">🔄 Сбросить все лайки</button>
+        </div>
+    </div>
+
+    <script>
+        const audio = document.getElementById('audio-player');
+        const likeBtn = document.getElementById('like-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const resetBtn = document.getElementById('reset-likes-btn');
+        const coverImg = document.getElementById('cover-img');
+        const titleEl = document.getElementById('song-title');
+        const artistGenreEl = document.getElementById('song-artist-genre');
+        const likeCountEl = document.getElementById('like-count');
+
+        const csrfToken = '{{ csrf_token }}';
+        let isLoading = false;
+
+        // Лайк текущего трека
+        likeBtn.addEventListener('click', function () {
+            if (this.disabled) return;
+
+            const songId = this.dataset.songId;
+            fetch(`/like/${songId}/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'ok') {
+                    likeBtn.textContent = '❤️ Liked';
+                    likeBtn.classList.add('liked');
+                    likeBtn.disabled = true;
+                    likeCountEl.textContent = parseInt(likeCountEl.textContent) + 1;
+                }
+            });
+        });
+
+        // Сброс всех лайков
+        resetBtn.addEventListener('click', function () {
+            if (!confirm('Ты уверен? Все твои лайки и история рекомендаций будут удалены!')) return;
+
+            fetch('/reset-likes/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'ok') {
+                    alert('Все лайки сброшены! Радио перезапустится с чистого листа.');
+                    location.reload();  // Перезагружаем страницу для чистоты
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert('Ошибка при сбросе лайков');
+            });
+        });
+
+        // Следующий трек
+        function loadNextSong() {
+            if (isLoading) return;
+            isLoading = true;
+            nextBtn.disabled = true;
+            nextBtn.textContent = '⏳ Loading...';
+
+            const currentId = likeBtn.dataset.songId;
+
+            fetch(`/next-song/?current_id=${currentId}`)
+                .then(res => {
+                    if (!res.ok) throw new Error('Network error');
+                    return res.json();
+                })
+                .then(data => {
+                    if (!data || !data.id) {
+                        console.log('Нет треков');
+                        return;
+                    }
+
+                    if (data.id == currentId) {
+                        audio.currentTime = 0;
+                        audio.play();
+                        isLoading = false;
+                        nextBtn.disabled = false;
+                        nextBtn.textContent = '⏭ Next';
+                        return;
+                    }
+
+                    titleEl.textContent = data.title;
+                    artistGenreEl.textContent = `${data.author} — ${data.genre}`;
+                    likeCountEl.textContent = data.likes_count || 0;
+
+                    if (data.cover_url && coverImg) {
+                        coverImg.src = data.cover_url;
+                    }
+
+                    likeBtn.dataset.songId = data.id;
+                    likeBtn.textContent = data.is_liked ? '❤️ Liked' : '❤️ Like';
+                    likeBtn.classList.toggle('liked', data.is_liked);
+                    likeBtn.disabled = data.is_liked;
+
+                    audio.src = data.file_url;
+                    audio.load();
+                    audio.play().catch(e => console.log('Play prevented:', e));
+                })
+                .catch(err => {
+                    console.error('Ошибка:', err);
+                    alert('Не удалось загрузить следующий трек');
+                })
+                .finally(() => {
+                    isLoading = false;
+                    nextBtn.disabled = false;
+                    nextBtn.textContent = '⏭ Next';
+                });
+        }
+
+        nextBtn.addEventListener('click', loadNextSong);
+        audio.addEventListener('ended', loadNextSong);
+
+        audio.addEventListener('error', () => {
+            console.error('Ошибка загрузки аудио');
+            isLoading = false;
+            nextBtn.disabled = false;
+            nextBtn.textContent = '⏭ Next';
+        });
+    </script>
+</body>
+
+</html>
