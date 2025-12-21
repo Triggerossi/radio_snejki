@@ -58,3 +58,7 @@ python manage.py createsuperuser
 Bashpython manage.py runserver
 
 Откройте в браузере: http://127.0.0.1:8000/
+
+![ER Diagram](diagram.png)
+
+
