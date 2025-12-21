@@ -74,9 +74,9 @@ Bashpython manage.py runserver
 ---
 
 # Скриншоты (Screenshots)
-![Авторизация](docs/photo1.png)
-![Радио](docs/photo3.png)
-![Админка](docs/photo2.png)
+![Авторизация](docs/photo1.jpg)
+![Радио](docs/photo3.jpg)
+![Админка](docs/photo2.jpg)
 
 
 # ER-диаграмма базы данных
