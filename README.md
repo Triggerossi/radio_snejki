@@ -59,7 +59,8 @@ Bashpython manage.py runserver
 
 Откройте в браузере: http://127.0.0.1:8000/
 
-![ER Diagram](./docs/diagram.png)
+![ER Diagram](https://raw.githubusercontent.com/Triggerossi/radio_snejki/master/docs/diagram.png)
+
 
 
 
