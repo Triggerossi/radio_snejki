@@ -128,13 +128,13 @@ POST	/reset-likes/
 ### Удалить все лайки и очистить историю рекомендаций
 
 # 🏗 Архитектура проекта
-Text Browser (HTML + CSS + Vanilla JS + <audio>)
+## Text Browser (HTML + CSS + Vanilla JS + <audio>)
         ↓↑ (AJAX: fetch)
-Django Backend (views.py, models.py)
+## Django Backend (views.py, models.py)
         ↓↑
-SQLite БД (Song, Author, Genre, Like, User)
+## SQLite БД (Song, Author, Genre, Like, User)
         ↑
-Django Sessions ← хранение:
+## Django Sessions ← хранение:
 #### recently_played (последние 5 треков)
 #### recently_liked (последние 5 лайкнутых)
 #### track_counter
