@@ -135,9 +135,9 @@ Django Backend (views.py, models.py)
 SQLite БД (Song, Author, Genre, Like, User)
         ↑
 Django Sessions ← хранение:
-   • recently_played (последние 5 треков)
-   • recently_liked (последние 5 лайкнутых)
-   • track_counter
+#### recently_played (последние 5 треков)
+#### recently_liked (последние 5 лайкнутых)
+#### track_counter
 
 🔹 Принцип работы
 
