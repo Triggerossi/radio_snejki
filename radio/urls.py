@@ -10,5 +10,6 @@ urlpatterns = [
     path('radio/', views.radio_view, name='radio'),
     path('like/<int:song_id>/', views.like_song, name='like_song'),
     path('next-song/', views.next_song_data, name='next_song_data'),
-    path('reset-likes/', views.reset_likes, name='reset_likes')
+    path('reset-likes/', views.reset_likes, name='reset_likes'),
+    path('dislike/<int:song_id>/', views.dislike_song, name='dislike_song'),
 ]

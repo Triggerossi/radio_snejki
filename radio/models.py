@@ -29,3 +29,10 @@ class Like(models.Model):
 
     class Meta:
         unique_together = ('user', 'song')
+
+class Dislike(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    song = models.ForeignKey(Song, on_delete=models.CASCADE)
+
+    class Meta:
+        unique_together = ('user', 'song')

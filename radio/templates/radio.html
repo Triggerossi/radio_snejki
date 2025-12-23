@@ -113,6 +113,7 @@
             <button id="like-btn" data-song-id="{{ song.id }}">
                 {% if song.is_liked %}❤️ Liked{% else %}❤️ Like{% endif %}
             </button>
+            <button id="dislike-btn" style="background:#888;">🚫 Не нравится</button>
             <button id="next-btn">⏭ Next</button>
             <br>
             <button id="reset-likes-btn" class="reset-btn">🔄 Сбросить все лайки</button>
@@ -144,15 +145,15 @@
                     'Content-Type': 'application/json'
                 }
             })
-            .then(res => res.json())
-            .then(data => {
-                if (data.status === 'ok') {
-                    likeBtn.textContent = '❤️ Liked';
-                    likeBtn.classList.add('liked');
-                    likeBtn.disabled = true;
-                    likeCountEl.textContent = parseInt(likeCountEl.textContent) + 1;
-                }
-            });
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'ok') {
+                        likeBtn.textContent = '❤️ Liked';
+                        likeBtn.classList.add('liked');
+                        likeBtn.disabled = true;
+                        likeCountEl.textContent = parseInt(likeCountEl.textContent) + 1;
+                    }
+                });
         });
 
         // Сброс всех лайков
@@ -166,19 +167,36 @@
                     'Content-Type': 'application/json'
                 }
             })
-            .then(res => res.json())
-            .then(data => {
-                if (data.status === 'ok') {
-                    alert('Все лайки сброшены! Радио перезапустится с чистого листа.');
-                    location.reload();  // Перезагружаем страницу для чистоты
-                }
-            })
-            .catch(err => {
-                console.error(err);
-                alert('Ошибка при сбросе лайков');
-            });
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'ok') {
+                        alert('Все лайки сброшены! Радио перезапустится с чистого листа.');
+                        location.reload();  // Перезагружаем страницу для чистоты
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    alert('Ошибка при сбросе лайков');
+                });
         });
+        const dislikeBtn = document.getElementById('dislike-btn');
 
+        dislikeBtn.addEventListener('click', function () {
+            if (confirm('Этот трек больше никогда не будет играть. Уверен?')) {
+                const songId = likeBtn.dataset.songId;
+                fetch(`/dislike/${songId}/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken,
+                        'Content-Type': 'application/json'
+                    }
+                })
+                    .then(() => {
+                        alert('Трек пропущен навсегда');
+                        loadNextSong();  // сразу следующий
+                    });
+            }
+        });
         // Следующий трек
         function loadNextSong() {
             if (isLoading) return;

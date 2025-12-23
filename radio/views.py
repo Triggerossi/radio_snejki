@@ -5,7 +5,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
-from .models import Song, Like, Author, Genre
+from .models import Song, Like, Author, Genre, Dislike
 
 
 def login_view(request):
@@ -52,7 +52,8 @@ def radio_view(request):
 
     # Базовый queryset
     queryset = Song.objects.all()
-
+    disliked_song_ids = Dislike.objects.filter(user=request.user).values_list('song_id', flat=True)
+    queryset = queryset.exclude(id__in=disliked_song_ids)   
     # Логика рекомендаций
     if liked_genres or liked_authors:
         session_counter = request.session.get('track_counter', 0)
@@ -133,6 +134,8 @@ def next_song_data(request):
 
     # Базовый queryset с исключениями
     queryset = Song.objects.exclude(id__in=exclude_ids)
+    disliked_song_ids = Dislike.objects.filter(user=request.user).values_list('song_id', flat=True)
+    queryset = queryset.exclude(id__in=disliked_song_ids)
 
     # Применяем рекомендации
     if liked_genres or liked_authors:
@@ -182,6 +185,8 @@ def reset_likes(request):
         # Удаляем все лайки пользователя
         Like.objects.filter(user=request.user).delete()
 
+        Dislike.objects.filter(user=request.user).delete()
+
         # Полная очистка сессии
         keys_to_clear = ['track_counter', 'recently_played', 'recently_liked']
         for key in keys_to_clear:
@@ -192,3 +197,10 @@ def reset_likes(request):
         return JsonResponse({'status': 'ok'})
 
     return JsonResponse({'status': 'error'}, status=400)
+
+@require_POST
+@login_required
+def dislike_song(request, song_id):
+    song = Song.objects.get(id=song_id)
+    Dislike.objects.get_or_create(user=request.user, song=song)
+    return JsonResponse({'status': 'ok'})
