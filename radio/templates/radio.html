@@ -1,67 +1,121 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="ru">
 <head>
-    <title>Radio</title>
+    <meta charset="UTF-8">
+    <title>My Radio</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
-            background: #1e1e1e;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            overflow: hidden;
+            background: #000 center/cover no-repeat;
             color: #fff;
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
-            margin: 0;
+            transition: background-image 1.2s ease-in-out;
+        }
+
+        /* Размытый фон с обложкой */
+        body::before {
+            content: '';
+            position: absolute;
+            top: -10%;
+            left: -10%;
+            right: -10%;
+            bottom: -10%;
+            background: inherit;
+            background-size: cover;
+            background-position: center;
+            filter: blur(50px) saturate(180%) brightness(0.5);
+            z-index: -2;
+            transform: scale(1.2);
+        }
+
+        /* Тёмный оверлей */
+        body::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.8) 100%);
+            z-index: -1;
         }
 
         .player {
+            position: relative;
+            z-index: 1;
             text-align: center;
-            background: #2c2c2c;
-            padding: 30px;
-            border-radius: 15px;
-            box-shadow: 0 0 20px rgba(0, 0, 0, 0.7);
-            width: 300px;
+            background: rgba(20, 20, 30, 0.6);
+            backdrop-filter: blur(20px);
+            padding: 40px;
+            border-radius: 24px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+            width: 400px;
+            max-width: 90%;
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         .cover {
-            width: 250px;
-            height: 250px;
+            width: 300px;
+            height: 300px;
             object-fit: cover;
-            border-radius: 15px;
-            margin-bottom: 20px;
+            border-radius: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.9);
+            transition: transform 0.3s ease;
+        }
+
+        .cover:hover {
+            transform: scale(1.05);
         }
 
         .song-info h2 {
-            margin: 10px 0 5px;
-            font-size: 24px;
+            font-size: 28px;
+            margin: 0 0 10px;
+            font-weight: 700;
         }
 
         .song-info p {
+            font-size: 18px;
+            color: #ccc;
             margin: 5px 0;
-            color: #aaa;
         }
 
         .likes {
-            color: #ff6f81;
-            font-size: 14px;
-            margin: 10px 0;
+            font-size: 18px;
+            color: #ff4b5c;
+            margin: 20px 0;
+        }
+
+        audio {
+            width: 100%;
+            margin: 25px 0;
+            outline: none;
+        }
+
+        .controls {
+            margin-top: 20px;
         }
 
         .controls button {
             background: #ff4b5c;
             border: none;
-            color: #fff;
-            padding: 12px 24px;
+            color: white;
+            padding: 14px 28px;
             margin: 8px;
             font-size: 18px;
-            border-radius: 8px;
+            border-radius: 50px;
             cursor: pointer;
-            transition: 0.3s;
+            transition: all 0.3s ease;
+            min-width: 120px;
         }
 
         .controls button:hover {
             background: #ff6f81;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(255, 75, 92, 0.4);
         }
 
         .controls button.liked {
@@ -69,27 +123,38 @@
         }
 
         .controls button:disabled {
-            opacity: 0.6;
+            opacity: 0.5;
             cursor: not-allowed;
         }
 
-        .controls .reset-btn {
-            background: #444;
-            font-size: 14px;
-            padding: 10px 16px;
-        }
-
-        .controls .reset-btn:hover {
+        #dislike-btn {
             background: #666;
         }
 
-        audio {
-            width: 100%;
-            margin: 20px 0;
+        #dislike-btn:hover {
+            background: #888;
+        }
+
+        .reset-btn {
+            background: #444 !important;
+            font-size: 15px;
+            padding: 10px 20px;
+        }
+
+        .reset-btn:hover {
+            background: #555 !important;
+        }
+
+        #visualizer {
+            width: 360px;
+            height: 120px;
+            margin: 30px auto;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 16px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6);
         }
     </style>
 </head>
-
 <body>
     <div class="player">
         {% if song.cover %}
@@ -109,11 +174,13 @@
             Ваш браузер не поддерживает аудио.
         </audio>
 
+        <canvas id="visualizer"></canvas>
+
         <div class="controls">
             <button id="like-btn" data-song-id="{{ song.id }}">
                 {% if song.is_liked %}❤️ Liked{% else %}❤️ Like{% endif %}
             </button>
-            <button id="dislike-btn" style="background:#888;">🚫 Не нравится</button>
+            <button id="dislike-btn">🚫 Не нравится</button>
             <button id="next-btn">⏭ Next</button>
             <br>
             <button id="reset-likes-btn" class="reset-btn">🔄 Сбросить все лайки</button>
@@ -123,6 +190,7 @@
     <script>
         const audio = document.getElementById('audio-player');
         const likeBtn = document.getElementById('like-btn');
+        const dislikeBtn = document.getElementById('dislike-btn');
         const nextBtn = document.getElementById('next-btn');
         const resetBtn = document.getElementById('reset-likes-btn');
         const coverImg = document.getElementById('cover-img');
@@ -133,91 +201,96 @@
         const csrfToken = '{{ csrf_token }}';
         let isLoading = false;
 
-        // Лайк текущего трека
+        // === ФОН С ОБЛОЖКОЙ ===
+        function updateBackground() {
+            const url = coverImg && coverImg.src ? coverImg.src : 'https://via.placeholder.com/300?text=No+Cover';
+            document.body.style.backgroundImage = `url(${url})`;
+        }
+
+        if (coverImg && coverImg.complete) updateBackground();
+        else if (coverImg) coverImg.onload = updateBackground;
+
+        // === ЛАЙК ===
         likeBtn.addEventListener('click', function () {
             if (this.disabled) return;
-
             const songId = this.dataset.songId;
             fetch(`/like/${songId}/`, {
                 method: 'POST',
-                headers: {
-                    'X-CSRFToken': csrfToken,
-                    'Content-Type': 'application/json'
-                }
+                headers: { 'X-CSRFToken': csrfToken }
             })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.status === 'ok') {
-                        likeBtn.textContent = '❤️ Liked';
-                        likeBtn.classList.add('liked');
-                        likeBtn.disabled = true;
-                        likeCountEl.textContent = parseInt(likeCountEl.textContent) + 1;
-                    }
-                });
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'ok') {
+                    likeBtn.textContent = '❤️ Liked';
+                    likeBtn.classList.add('liked');
+                    likeBtn.disabled = true;
+                    likeCountEl.textContent = parseInt(likeCountEl.textContent) + 1;
+                }
+            });
         });
 
-        // Сброс всех лайков
-        resetBtn.addEventListener('click', function () {
-            if (!confirm('Ты уверен? Все твои лайки и история рекомендаций будут удалены!')) return;
+        // === ДИЗЛАЙК (ИСПРАВЛЕНО: всегда переключает на следующий) ===
+        dislikeBtn.addEventListener('click', function () {
+            if (!confirm('Этот трек больше никогда не будет играть. Уверен?')) return;
 
+            const songId = likeBtn.dataset.songId;
+
+            fetch(`/dislike/${songId}/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken }
+            })
+            .then(res => {
+                if (!res.ok) throw new Error('Ошибка дизлайка');
+                return res.json();
+            })
+            .then(() => {
+                alert('Трек пропущен навсегда');
+                loadNextSong(true);  // forceNext = true — принудительно меняем трек
+            })
+            .catch(err => {
+                console.error(err);
+                alert('Ошибка при дизлайке');
+            });
+        });
+
+        // === СБРОС ===
+        resetBtn.addEventListener('click', function () {
+            if (!confirm('Ты уверен? Все твои лайки, дизлайки и история будут удалены!')) return;
             fetch('/reset-likes/', {
                 method: 'POST',
-                headers: {
-                    'X-CSRFToken': csrfToken,
-                    'Content-Type': 'application/json'
-                }
+                headers: { 'X-CSRFToken': csrfToken }
             })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.status === 'ok') {
-                        alert('Все лайки сброшены! Радио перезапустится с чистого листа.');
-                        location.reload();  // Перезагружаем страницу для чистоты
-                    }
-                })
-                .catch(err => {
-                    console.error(err);
-                    alert('Ошибка при сбросе лайков');
-                });
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'ok') {
+                    alert('Всё сброшено!');
+                    location.reload();
+                }
+            });
         });
-        const dislikeBtn = document.getElementById('dislike-btn');
 
-        dislikeBtn.addEventListener('click', function () {
-            if (confirm('Этот трек больше никогда не будет играть. Уверен?')) {
-                const songId = likeBtn.dataset.songId;
-                fetch(`/dislike/${songId}/`, {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRFToken': csrfToken,
-                        'Content-Type': 'application/json'
-                    }
-                })
-                    .then(() => {
-                        alert('Трек пропущен навсегда');
-                        loadNextSong();  // сразу следующий
-                    });
-            }
-        });
-        // Следующий трек
-        function loadNextSong() {
+        // === СЛЕДУЮЩИЙ ТРЕК ===
+        function loadNextSong(forceNext = false) {
             if (isLoading) return;
             isLoading = true;
             nextBtn.disabled = true;
-            nextBtn.textContent = '⏳ Loading...';
+            nextBtn.textContent = '⏳';
 
             const currentId = likeBtn.dataset.songId;
 
             fetch(`/next-song/?current_id=${currentId}`)
-                .then(res => {
-                    if (!res.ok) throw new Error('Network error');
-                    return res.json();
-                })
+                .then(res => res.json())
                 .then(data => {
                     if (!data || !data.id) {
                         console.log('Нет треков');
+                        isLoading = false;
+                        nextBtn.disabled = false;
+                        nextBtn.textContent = '⏭ Next';
                         return;
                     }
 
-                    if (data.id == currentId) {
+                    // Если обычный next и вернулся тот же — перезапускаем с начала
+                    if (data.id == currentId && !forceNext) {
                         audio.currentTime = 0;
                         audio.play();
                         isLoading = false;
@@ -226,12 +299,16 @@
                         return;
                     }
 
+                    // Полная смена трека (для next или дизлайка)
                     titleEl.textContent = data.title;
                     artistGenreEl.textContent = `${data.author} — ${data.genre}`;
                     likeCountEl.textContent = data.likes_count || 0;
 
                     if (data.cover_url && coverImg) {
+                        coverImg.onload = updateBackground;
                         coverImg.src = data.cover_url;
+                    } else {
+                        updateBackground();
                     }
 
                     likeBtn.dataset.songId = data.id;
@@ -239,13 +316,18 @@
                     likeBtn.classList.toggle('liked', data.is_liked);
                     likeBtn.disabled = data.is_liked;
 
+                    audio.pause();
                     audio.src = data.file_url;
                     audio.load();
-                    audio.play().catch(e => console.log('Play prevented:', e));
+
+                    // Надёжный play
+                    audio.oncanplaythrough = audio.oncanplay = () => {
+                        audio.oncanplaythrough = audio.oncanplay = null;
+                        audio.play().catch(() => {});
+                    };
                 })
                 .catch(err => {
-                    console.error('Ошибка:', err);
-                    alert('Не удалось загрузить следующий трек');
+                    console.error('Ошибка загрузки трека:', err);
                 })
                 .finally(() => {
                     isLoading = false;
@@ -254,16 +336,84 @@
                 });
         }
 
-        nextBtn.addEventListener('click', loadNextSong);
-        audio.addEventListener('ended', loadNextSong);
+        nextBtn.addEventListener('click', () => loadNextSong());
+        audio.addEventListener('ended', () => loadNextSong());
 
-        audio.addEventListener('error', () => {
-            console.error('Ошибка загрузки аудио');
-            isLoading = false;
-            nextBtn.disabled = false;
-            nextBtn.textContent = '⏭ Next';
+        // === ВИЗУАЛАЙЗЕР ===
+        const canvas = document.getElementById('visualizer');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 360;
+        canvas.height = 120;
+
+        let audioContext = null;
+        let analyser = null;
+        let source = null;
+        let dataArray = null;
+        let visualizerStarted = false;
+
+        function initVisualizer() {
+            if (visualizerStarted) return;
+
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                source = audioContext.createMediaElementSource(audio);
+                source.connect(analyser);
+                analyser.connect(audioContext.destination);
+                analyser.fftSize = 512;
+
+                const bufferLength = analyser.frequencyBinCount;
+                dataArray = new Uint8Array(bufferLength);
+
+                visualizerStarted = true;
+                drawVisualizer();
+            } catch (e) {
+                console.error('Визуалайзер не поддерживается:', e);
+            }
+        }
+
+        function drawVisualizer() {
+            if (!visualizerStarted) return;
+            requestAnimationFrame(drawVisualizer);
+
+            analyser.getByteFrequencyData(dataArray);
+
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const barWidth = (canvas.width / dataArray.length) * 2.5;
+            let x = 0;
+
+            for (let i = 0; i < dataArray.length; i++) {
+                const barHeight = (dataArray[i] / 255) * canvas.height * 0.9;
+
+                const gradient = ctx.createLinearGradient(0, canvas.height - barHeight, 0, canvas.height);
+                gradient.addColorStop(0, '#ff4b5c');
+                gradient.addColorStop(0.5, '#ff8fa3');
+                gradient.addColorStop(1, '#ffb1c1');
+
+                ctx.fillStyle = gradient;
+                ctx.fillRect(x, canvas.height - barHeight, barWidth - 1, barHeight);
+                x += barWidth;
+            }
+        }
+
+        // Запуск визуалайзера после первого клика
+        function startVisualizer() {
+            initVisualizer();
+            document.removeEventListener('click', startVisualizer);
+            document.removeEventListener('touchstart', startVisualizer);
+        }
+
+        document.addEventListener('click', startVisualizer);
+        document.addEventListener('touchstart', startVisualizer);
+
+        // Возобновление контекста при воспроизведении
+        audio.addEventListener('play', () => {
+            if (audioContext && audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
         });
     </script>
 </body>
-
 </html>

@@ -38,11 +38,11 @@ def logout_view(request):
 
 @login_required
 def radio_view(request):
-    # Инициализация списков истории в сессии
+    # Инициализация истории в сессии
     if 'recently_played' not in request.session:
-        request.session['recently_played'] = []  # последние 5 сыгранных треков
+        request.session['recently_played'] = []
     if 'recently_liked' not in request.session:
-        request.session['recently_liked'] = []   # последние 5 лайкнутых треков
+        request.session['recently_liked'] = []
 
     # Любимые жанры и исполнители
     liked_genres = set(Like.objects.filter(user=request.user)
@@ -50,36 +50,34 @@ def radio_view(request):
     liked_authors = set(Like.objects.filter(user=request.user)
                         .values_list('song__author__name', flat=True).distinct())
 
-    # Базовый queryset
-    queryset = Song.objects.all()
-    disliked_song_ids = Dislike.objects.filter(user=request.user).values_list('song_id', flat=True)
-    queryset = queryset.exclude(id__in=disliked_song_ids)   
+    # Исключаем дизлайкнутые треки навсегда
+    disliked_ids = Dislike.objects.filter(user=request.user).values_list('song_id', flat=True)
+    queryset = Song.objects.exclude(id__in=disliked_ids)
+
     # Логика рекомендаций
     if liked_genres or liked_authors:
         session_counter = request.session.get('track_counter', 0)
         request.session['track_counter'] = session_counter + 1
         request.session.modified = True
 
-        # Каждый 4-й трек — НЕ из любимых жанров/исполнителей
         if session_counter % 4 == 0 and session_counter != 0:
             queryset = queryset.exclude(genre__name__in=liked_genres).exclude(author__name__in=liked_authors)
         else:
             queryset = queryset.filter(genre__name__in=liked_genres) | queryset.filter(author__name__in=liked_authors)
 
         if not queryset.exists():
-            queryset = Song.objects.all()
+            queryset = Song.objects.exclude(id__in=disliked_ids)
 
     # Выбор песни
     song = queryset.order_by('?').first()
 
     if song:
-        # Добавляем в историю сыгранных
         recently_played = request.session['recently_played']
         recently_played.append(song.id)
-        request.session['recently_played'] = recently_played[-5:]  # храним только 5
+        request.session['recently_played'] = recently_played[-5:]
         request.session.modified = True
 
-    # Обработка лайка на стартовой загрузке (если POST)
+    # Лайк при POST (если нужно)
     if request.method == 'POST' and song:
         if not Like.objects.filter(user=request.user, song=song).exists():
             Like.objects.create(user=request.user, song=song)
@@ -100,7 +98,6 @@ def like_song(request, song_id):
     like, created = Like.objects.get_or_create(user=request.user, song=song)
 
     if created:
-        # Добавляем в список недавно лайкнутых (чтобы не повторялся скоро)
         recently_liked = request.session.get('recently_liked', [])
         recently_liked.append(song.id)
         request.session['recently_liked'] = recently_liked[-5:]
@@ -109,12 +106,20 @@ def like_song(request, song_id):
     return JsonResponse({'status': 'ok'})
 
 
+@require_POST
+@login_required
+def dislike_song(request, song_id):
+    song = Song.objects.get(id=song_id)
+    Dislike.objects.get_or_create(user=request.user, song=song)
+    return JsonResponse({'status': 'ok'})
+
+
 @login_required
 def next_song_data(request):
     current_id = request.GET.get('current_id')
     current_id = int(current_id) if current_id else None
 
-    # Запрещённые треки: последние 5 сыгранных + последние 5 лайкнутых + текущий
+    # История из сессии
     recently_played = request.session.get('recently_played', [])
     recently_liked = request.session.get('recently_liked', [])
     exclude_ids = set(recently_played + recently_liked)
@@ -127,20 +132,18 @@ def next_song_data(request):
     liked_authors = set(Like.objects.filter(user=request.user)
                         .values_list('song__author__name', flat=True).distinct())
 
-    # Счётчик треков
+    # Счётчик
     session_counter = request.session.get('track_counter', 0)
     request.session['track_counter'] = session_counter + 1
     request.session.modified = True
 
-    # Базовый queryset с исключениями
-    queryset = Song.objects.exclude(id__in=exclude_ids)
-    disliked_song_ids = Dislike.objects.filter(user=request.user).values_list('song_id', flat=True)
-    queryset = queryset.exclude(id__in=disliked_song_ids)
+    # Исключаем дизлайкнутые навсегда
+    disliked_ids = Dislike.objects.filter(user=request.user).values_list('song_id', flat=True)
+    queryset = Song.objects.exclude(id__in=disliked_ids).exclude(id__in=exclude_ids)
 
-    # Применяем рекомендации
+    # Рекомендации
     if liked_genres or liked_authors:
         if session_counter % 4 == 0 and session_counter != 0:
-            # Каждый 4-й — другой стиль
             preferred = queryset.exclude(genre__name__in=liked_genres).exclude(author__name__in=liked_authors)
         else:
             preferred = queryset.filter(genre__name__in=liked_genres) | queryset.filter(author__name__in=liked_authors)
@@ -148,22 +151,20 @@ def next_song_data(request):
         if preferred.exists():
             queryset = preferred
 
-    # Fallback, если ничего не осталось
+    # Fallback
     if not queryset.exists():
-        queryset = Song.objects.all()
+        queryset = Song.objects.exclude(id__in=disliked_ids)
         if current_id:
             queryset = queryset.exclude(id=current_id)
 
-    # Выбор песни
     song = random.choice(list(queryset.order_by('?')))
 
-    # Обновляем историю сыгранных
+    # Обновляем историю
     recently_played = request.session.get('recently_played', [])
     recently_played.append(song.id)
     request.session['recently_played'] = recently_played[-5:]
     request.session.modified = True
 
-    # Ответ
     is_liked = Like.objects.filter(user=request.user, song=song).exists()
     likes_count = Like.objects.filter(song=song).count()
 
@@ -182,12 +183,9 @@ def next_song_data(request):
 @login_required
 def reset_likes(request):
     if request.method == 'POST':
-        # Удаляем все лайки пользователя
         Like.objects.filter(user=request.user).delete()
+        Dislike.objects.filter(user=request.user).delete()  # Удаляем и дизлайки!
 
-        Dislike.objects.filter(user=request.user).delete()
-
-        # Полная очистка сессии
         keys_to_clear = ['track_counter', 'recently_played', 'recently_liked']
         for key in keys_to_clear:
             if key in request.session:
@@ -197,10 +195,3 @@ def reset_likes(request):
         return JsonResponse({'status': 'ok'})
 
     return JsonResponse({'status': 'error'}, status=400)
-
-@require_POST
-@login_required
-def dislike_song(request, song_id):
-    song = Song.objects.get(id=song_id)
-    Dislike.objects.get_or_create(user=request.user, song=song)
-    return JsonResponse({'status': 'ok'})
